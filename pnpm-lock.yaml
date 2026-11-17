@@ -45,8 +45,8 @@ dependencies:
     specifier: ^0.10.1
     version: 0.10.2
   phaser:
-    specifier: ^3.60.0
-    version: 3.70.0
+    specifier: ^4.2.1
+    version: 4.2.1
   phaser3-rex-plugins:
     specifier: 1.1.70
     version: 1.1.70
@@ -491,7 +491,7 @@ packages:
   /@jscpd/core@3.5.10:
     resolution: {integrity: sha512-k8owgREEI6bUHtVq+PM3+Gp5GgLgwMklWabJzZdtNXpHeC22EzviAW1Of7cifPLmdMJ3xfkoHl5No9/gg6y5FA==}
     dependencies:
-      eventemitter3: 5.0.1
+      eventemitter3: 5.0.4
     dev: true
 
   /@jscpd/finder@3.5.10:
@@ -1892,6 +1892,10 @@ packages:
 
   /eventemitter3@5.0.1:
     resolution: {integrity: sha512-GWkBvjiSZK87ELrYOSESUYeVIc9mvLLf/nXalMOS5dYrgZq9o5OVkbZAVM06CVxYsCwH9BDZFPlQTlPA1j4ahA==}
+    dev: false
+
+  /eventemitter3@5.0.4:
+    resolution: {integrity: sha512-mlsTRyGaPBjPedk6Bvw+aqbsXDtoAyAzm5MO7JgU+yVRyMQ5O8bD4Kcci7BS85f93veegeCPkL8R4GLClnjLFw==}
 
   /events@3.3.0:
     resolution: {integrity: sha512-mQw+2fkQbALzQ7V0MY0IqdnXNOeTtP4r0lN9z7AAawCXgqea7bDii20AYrIBrFd/Hx0M2Ocz6S111CaFkUcb0Q==}
@@ -2264,7 +2268,7 @@ packages:
       source-map: 0.6.1
       wordwrap: 1.0.0
     optionalDependencies:
-      uglify-js: 3.17.4
+      uglify-js: 3.19.3
     dev: false
 
   /har-schema@2.0.0:
@@ -3152,7 +3156,7 @@ packages:
     dependencies:
       '@types/webfontloader': 1.6.35
       eventemitter3: 5.0.1
-      phaser: 3.70.0
+      phaser: 4.2.1
     dev: false
 
   /phaser3-rex-plugins@1.1.70:
@@ -3165,10 +3169,10 @@ packages:
       webfontloader: 1.6.28
     dev: false
 
-  /phaser@3.70.0:
-    resolution: {integrity: sha512-2g+gh+Jp9f/Ho9FOXOYbIJMGf3UZXyMbW2iLScFaLQw11e/LqVyxj/YmaBauWbHabeTnZjiWkPklDnxhesMH0g==}
+  /phaser@4.2.1:
+    resolution: {integrity: sha512-WUNwCPJpdjvZiuT6SgCfYVW8Qw/3j0jJ4ws7P2QkhFLFu74sbGuyHJcbFueGkY/AYO4Pi47bNQXn1OCJeLX//w==}
     dependencies:
-      eventemitter3: 5.0.1
+      eventemitter3: 5.0.4
     dev: false
 
   /picocolors@1.0.0:
@@ -3903,8 +3907,8 @@ packages:
     hasBin: true
     dev: true
 
-  /uglify-js@3.17.4:
-    resolution: {integrity: sha512-T9q82TJI9e/C1TAxYvfb16xO120tMVFZrGA3f9/P4424DNu6ypK103y0GPFVa17yotwSyZW5iYXgjYHkGrJW/g==}
+  /uglify-js@3.19.3:
+    resolution: {integrity: sha512-v3Xu+yuwBXisp6QYTcH4UbH+xYJXqnq2m/LtQVWKWzYc1iehYnLixoQDN9FH6/j9/oybfd6W9Ghwkl8+UMKTKQ==}
     engines: {node: '>=0.8.0'}
     hasBin: true
     requiresBuild: true
