@@ -25,7 +25,7 @@ dependencies:
     version: 5.1.1
   isomorphic-dompurify:
     specifier: ^1.9.0
-    version: 1.9.0(bufferutil@4.0.8)(utf-8-validate@6.0.3)
+    version: 1.9.0(bufferutil@4.2.0)(utf-8-validate@6.0.3)
   jsonrepair:
     specifier: ^3.6.0
     version: 3.6.0
@@ -70,7 +70,7 @@ dependencies:
     version: 13.9.0
   ws:
     specifier: ^8.8.1
-    version: 8.13.0(bufferutil@4.0.8)(utf-8-validate@6.0.3)
+    version: 8.13.0(bufferutil@4.2.0)(utf-8-validate@6.0.3)
   xss-filters:
     specifier: ^1.2.7
     version: 1.2.7
@@ -107,8 +107,8 @@ devDependencies:
     specifier: ^6.9.4
     version: 6.9.4
   bufferutil:
-    specifier: ^4.0.8
-    version: 4.0.8
+    specifier: ^4.2.0
+    version: 4.2.0
   concurrently:
     specifier: ^8.2.2
     version: 8.2.2
@@ -1059,12 +1059,12 @@ packages:
       ieee754: 1.2.1
     dev: false
 
-  /bufferutil@4.0.8:
-    resolution: {integrity: sha512-4T53u4PdgsXqKaIctwF8ifXlRTTmEPJ8iEPWFdGZvcf7sbwYo6FKFEX9eNNAnzFZ7EzJAQ3CJeOtCRA4rDp7Pw==}
+  /bufferutil@4.2.0:
+    resolution: {integrity: sha512-gyy58jET9kst2IGyBKb96a4Y2bPGTHXGyCd0/1eqIV3hr1Sz3VxtA8n7bXh8fLIuE2K6Z0Upax5a5Msx+HU1IQ==}
     engines: {node: '>=6.14.2'}
     requiresBuild: true
     dependencies:
-      node-gyp-build: 4.8.0
+      node-gyp-build: 4.8.4
 
   /builtins@5.0.1:
     resolution: {integrity: sha512-qwVpFEHNfhYJIzNRBvd2C1kyo6jz3ZSMPyyuR47OPdiKWlbYnZNyDWuyR175qDnAJLiCo5fBBqPb3RiXgWlkOQ==}
@@ -2264,7 +2264,7 @@ packages:
       source-map: 0.6.1
       wordwrap: 1.0.0
     optionalDependencies:
-      uglify-js: 3.17.4
+      uglify-js: 3.19.3
     dev: false
 
   /har-schema@2.0.0:
@@ -2627,12 +2627,12 @@ packages:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
     dev: true
 
-  /isomorphic-dompurify@1.9.0(bufferutil@4.0.8)(utf-8-validate@6.0.3):
+  /isomorphic-dompurify@1.9.0(bufferutil@4.2.0)(utf-8-validate@6.0.3):
     resolution: {integrity: sha512-DehfjDqzqDIX6ltkpcpXXzOOUm5Qi+3OioI0ZMzZh1C7xTsUpPMVT/UCaPmYXnOf4PjbTDA1tAyxnt8rBkYudA==}
     dependencies:
       '@types/dompurify': 3.0.5
       dompurify: 3.0.6
-      jsdom: 22.1.0(bufferutil@4.0.8)(utf-8-validate@6.0.3)
+      jsdom: 22.1.0(bufferutil@4.2.0)(utf-8-validate@6.0.3)
     transitivePeerDependencies:
       - bufferutil
       - canvas
@@ -2687,7 +2687,7 @@ packages:
       gitignore-to-glob: 0.3.0
     dev: true
 
-  /jsdom@22.1.0(bufferutil@4.0.8)(utf-8-validate@6.0.3):
+  /jsdom@22.1.0(bufferutil@4.2.0)(utf-8-validate@6.0.3):
     resolution: {integrity: sha512-/9AVW7xNbsBv6GfWho4TTNjEo9fe6Zhf9O7s0Fhhr3u+awPwAJMKwAMXnkk5vBxflqLW9hTHX/0cs+P3gW+cQw==}
     engines: {node: '>=16'}
     peerDependencies:
@@ -2717,7 +2717,7 @@ packages:
       whatwg-encoding: 2.0.0
       whatwg-mimetype: 3.0.0
       whatwg-url: 12.0.1
-      ws: 8.13.0(bufferutil@4.0.8)(utf-8-validate@6.0.3)
+      ws: 8.13.0(bufferutil@4.2.0)(utf-8-validate@6.0.3)
       xml-name-validator: 4.0.0
     transitivePeerDependencies:
       - bufferutil
@@ -2974,6 +2974,10 @@ packages:
 
   /node-gyp-build@4.8.0:
     resolution: {integrity: sha512-u6fs2AEUljNho3EYTJNBfImO5QTo/J/1Etd+NVdCj7qWKUSN/bSLkZwhDv7I+w/MSC6qJ4cknepkAYykDdK8og==}
+    hasBin: true
+
+  /node-gyp-build@4.8.4:
+    resolution: {integrity: sha512-LA4ZjwlnUblHVgq0oBF3Jl/6h/Nvs5fzBLwdEF4nuxnFdsfajde4WfxtJr3CaiH+F6ewcIB/q4jQ4UzPyid+CQ==}
     hasBin: true
 
   /node-releases@2.0.11:
@@ -3903,8 +3907,8 @@ packages:
     hasBin: true
     dev: true
 
-  /uglify-js@3.17.4:
-    resolution: {integrity: sha512-T9q82TJI9e/C1TAxYvfb16xO120tMVFZrGA3f9/P4424DNu6ypK103y0GPFVa17yotwSyZW5iYXgjYHkGrJW/g==}
+  /uglify-js@3.19.3:
+    resolution: {integrity: sha512-v3Xu+yuwBXisp6QYTcH4UbH+xYJXqnq2m/LtQVWKWzYc1iehYnLixoQDN9FH6/j9/oybfd6W9Ghwkl8+UMKTKQ==}
     engines: {node: '>=0.8.0'}
     hasBin: true
     requiresBuild: true
@@ -4117,7 +4121,7 @@ packages:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
     dev: true
 
-  /ws@8.13.0(bufferutil@4.0.8)(utf-8-validate@6.0.3):
+  /ws@8.13.0(bufferutil@4.2.0)(utf-8-validate@6.0.3):
     resolution: {integrity: sha512-x9vcZYTrFPC7aSIbj7sRCYo7L/Xb8Iy+pW0ng0wt2vCJv7M9HOMy0UoN3rr+IFC7hb7vXoqS+P9ktyLLLhO+LA==}
     engines: {node: '>=10.0.0'}
     peerDependencies:
@@ -4129,7 +4133,7 @@ packages:
       utf-8-validate:
         optional: true
     dependencies:
-      bufferutil: 4.0.8
+      bufferutil: 4.2.0
       utf-8-validate: 6.0.3
     dev: false
 
