@@ -83,7 +83,7 @@
 		"inquirer": "^8.2.6",
 		"jscpd": "^3.5.10",
 		"node-arguments": "^0.0.1",
-		"prettier": "^3.2.4",
+		"prettier": "^3.10.1",
 		"prettier-plugin-sort-members": "^0.1.1",
 		"typescript": "^5.0.4",
 		"utf-8-validate": "^6.0.3"
