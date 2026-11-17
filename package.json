@@ -46,7 +46,7 @@
 		"lzutf8": "^0.6.3",
 		"msgpack-lite": "^0.1.26",
 		"nipplejs": "^0.10.1",
-		"phaser": "^3.60.0",
+		"phaser": "^4.2.1",
 		"phaser3-rex-plugins": "1.1.70",
 		"phaser3-rex-plugins-types": "^0.2.0",
 		"rate-limiter-flexible": "^2.3.7",
