@@ -1,0 +1,250 @@
+interface EntityData {
+	scripts?: any;
+	cellSheet: {
+		columnCount: number;
+		rowCount: number;
+		url: string;
+	};
+	animations: Record<
+		string,
+		{
+			frames: number[];
+			framesPerSecond: number;
+			loopCount: number;
+			name: string;
+		}
+	>;
+	controls: {
+		mouseBehaviour: any;
+		abilities: Record<string, ControlAbility>;
+		unitAbilities: Record<string, UnitAbility>;
+	};
+	id: string;
+	is3DObject?: boolean;
+}
+
+interface UnitAbility {
+	name: string;
+	castDuration: number;
+	cooldown: number;
+	cost: {
+		unitAttributes: Record<string, number>;
+		playerAttributes: Record<string, number>;
+	};
+	visibility: 'always' | 'mobile' | 'desktop' | 'none';
+	iconUrl: string;
+}
+
+interface ScriptData {
+	name: string;
+	triggers: Record<
+		string,
+		{
+			type: string;
+		}
+	>;
+	actions: Record<string, ActionData>;
+	deleted?: boolean;
+}
+
+interface ScriptChangesData {
+	scriptData: Record<string, ScriptData>;
+	action: string;
+	clientId: string;
+}
+
+interface ActionData {
+	player?: {
+		variableName: string;
+		function: string;
+	};
+	offset?: THREE.Vector3;
+	disabled?: boolean;
+	unitType?: string;
+	itemType?: string;
+	projectileType?: string;
+	propType?: string;
+	actionId?: string;
+	type?: string;
+	entity?: string;
+	entityType?: string;
+	position?: {
+		function?: string;
+		x: number;
+		y: number;
+		z?: number;
+	};
+	rotation?: {
+		function?: string;
+		x: number;
+		y: number;
+		z: number;
+	};
+	scale?: {
+		function?: string;
+		x: number;
+		y: number;
+		z: number;
+	};
+	angle?: number;
+	width?: number;
+	height?: number;
+	depth?: number;
+	wasCreated?: boolean;
+	wasEdited?: boolean;
+	wasDeleted?: boolean;
+}
+
+interface VariableData {
+	dataType?: string;
+	newKey?: string;
+	value?: any;
+	delete?: boolean;
+}
+
+interface MapData {
+	wasEdited: boolean;
+	haveUnsavedChanges: boolean;
+	tilewidth: number;
+	tileheight: number;
+	originalTileWidth: number;
+	originalTileHeight: number;
+	width: number;
+	height: number;
+	tilesets: {
+		image: string;
+		margin: number;
+		name: string;
+		spacing: number;
+		tilecount: number;
+		tileheight: number;
+		tilewidth: number;
+		type?: 'top' | 'side';
+	}[];
+	layers: {
+		y: number;
+		x: number;
+		opacity: number;
+		data: number[];
+		name: string;
+		width: number;
+		height: number;
+		id: number;
+		type: 'tilelayer' | 'objectgroup';
+	}[];
+}
+
+declare class GameComponent extends TaroEntity {
+	getAsset(type: string, typeId: string): any;
+	lastCreatedUnitId: string;
+	cloneAsset(arg0: string, unitTypeId: string): any;
+	getPlayerByClientId(clientId: string): Player;
+
+	data: {
+		variables: Record<string, VariableData>;
+		scripts: Record<string, ScriptData>;
+		defaultData: any;
+		map: MapData;
+		unitTypes: Record<string, EntityData>;
+		projectileTypes: Record<string, EntityData>;
+		itemTypes: Record<string, EntityData>;
+		particleTypes: Record<string, ParticleData>;
+		propTypes: Record<string, EntityData>;
+		abilities: Record<string, UnitAbility>;
+		// TODO: add type of value for shop & dialogue Record.
+		shops: Record<string, any>;
+		dialogues: Record<string, any>;
+		settings: {
+			addStrokeToNameAndAttributes: boolean;
+			water?: {
+				down: number | string;
+				downLeftCorner: number | string;
+				downLeftInvertCorner: number | string;
+				downRightCorner: number | string;
+				downRightInvertCorner: number | string;
+				left: number | string;
+				normalWater: number | string;
+				right: number | string;
+				top: number | string;
+				topLeftInvertCorner: number | string;
+				topRightCorner: number | string;
+				topRightInvertCorner: number | string;
+				uniforms: {
+					foamQuantizeAmount: number;
+					foamNoiseAmount: number;
+					foamFrequency: number;
+					foamNoiseScale: number;
+					causticHighlightOpacity: number;
+					causticHighlightColor: string;
+					waterColor: string;
+					waterOpacity: number;
+					noiseScale: number;
+					noiseModulateSpeed: number;
+					causticTextureScale: number;
+					causticMovementScale: number;
+					causticMovementSpeed: number;
+					causticMovementStrength: number;
+					noiseStrength: number;
+					specularNoiseMovementStrength: number;
+					specularSpeed: number;
+					waveSpeed: number;
+					causticColor: string;
+					causticOpacity: number;
+				};
+			};
+			camera: {
+				near: number;
+				far: number;
+				defaultYaw: number;
+				useBounds: boolean;
+				trackingDelay: number;
+				zoom: {
+					default: number;
+				};
+				deadzone: {
+					width: number;
+					height: number;
+				};
+				projectionMode: 'orthographic' | 'perspective';
+				defaultPitch: number;
+				collisions: boolean;
+			};
+			skybox: {
+				left: string;
+				right: string;
+				top: string;
+				bottom: string;
+				front: string;
+				back: string;
+			};
+			fog: {
+				enabled: boolean;
+				type: 'linear' | 'exp2';
+				color: string;
+				near: number;
+				far: number;
+				density: number;
+			};
+			light: {
+				ambient: {
+					color: string;
+					intensity: number;
+				};
+				directional: {
+					color: string;
+					intensity: number;
+					position: {
+						x: number;
+						y: number;
+						z: number;
+					};
+				};
+			};
+			shadowQuality: undefined | 'simple' | 'low' | 'medium' | 'high';
+		};
+		heightBasedZIndex: boolean;
+		texturePack: any;
+	};
+
+	entitiesCollidingWithLastRaycast: TaroEntity[];
+}

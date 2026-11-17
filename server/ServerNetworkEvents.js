@@ -1,0 +1,958 @@
+var ServerNetworkEvents = {
+	/**
+	 * Is called when the network tells us a new client has connected
+	 * to the server. This is the point we can return true to reject
+	 * the client connection if we wanted to.
+	 * @param data The data object that contains any data sent from the client.
+	 * @param clientId The client id of the client that sent the message.
+	 * @private
+	 */
+
+	_onClientConnect: function (socket) {
+		// Tell the client to track their player entity
+		// Don't reject the client connection
+
+		var clientId = socket.id;
+		console.log(
+			`3. _onClientConnect ${clientId} (ip: ${socket._remoteAddress}) client count: ${Object.keys(taro.server.clients).length}`,
+			'(ServerNetworkEvents.js)'
+		);
+
+		taro.server.clients[clientId] = {
+			id: clientId,
+			socket: socket,
+			ip: socket._remoteAddress,
+		};
+
+		taro.server.clients[clientId].lastEventAt = Date.now();
+		taro.server.testerId = clientId;
+	},
+
+	_onClientDisconnect: function ({ clientId, userId, guestUserId, kickUserRequestId, reason }) {
+		var self = this;
+
+		if (!reason) {
+			// socket already disconnected, why sending clientDisconnect command then?
+			taro.network.send('clientDisconnect', { reason: 'Player disconnected', clientId: clientId }, clientId);
+		}
+
+		// remove client from streamData
+		for (entityId in taro.network.stream._streamClientCreated) {
+			delete taro.network.stream._streamClientCreated[entityId][clientId];
+		}
+
+		var client = taro.server.clients[clientId];
+		var player = taro.game.getPlayerByClientId(clientId);
+
+		if (client && client._id) {
+			taro.devLog(`BE(out): clientDisconnect: ${clientId} ${client._id}`);
+
+			if (player) {
+				console.log(`_onclientDisconnect ${clientId} (${player._stats.name}) ${Date.now() - client.lastEventAt}`);
+				player.updatePlayerHighscore();
+			}
+		}
+
+		if (player) {
+			player.remove();
+		}
+
+		if (userId || guestUserId) {
+			taro.workerComponent.saveLastPlayedTime(userId, guestUserId, kickUserRequestId);
+		}
+	},
+
+	_onJoinGame: function (data, clientId) {
+		if (taro.workerComponent) {
+			// this is used for hosted version of moddio
+			// Step 1: Filter out players controlled by humans and extract their usernames
+			var humanPlayers = taro.$$('player').filter((player) => player._stats.controlledBy === 'human');
+			var existingNames = humanPlayers.map((player) => player._stats.username.substring('user'.length));
+
+			if (humanPlayers.length < 1000) {
+				// Step 2: Check if the generated number is already in use
+				if (existingNames.includes(`user${String(data.number)}`)) {
+					// Step 3: Generate a unique number if the current one is already in use
+					do {
+						data.number = Math.floor(Math.random() * 999) + 100;
+					} while (existingNames.includes(`user${String(data.number)}`)); // Step 4: Repeat until a unique number is found
+				}
+			}
+
+			let clientData = taro.workerComponent.authenticateClient(data, clientId); // will return data if user is authenticated. otherwise, will return undefined
+
+			if (clientData) {
+				let playerId = clientData?._id;
+				if (clientData && playerId) {
+					// authenticate logged-in player
+					taro.workerComponent.authenticatePlayer(playerId, clientId, data);
+				} else {
+					// authenticate guest player
+					taro.workerComponent.authenticateGuest(clientId, data);
+				}
+			} else {
+				// client authentication failed
+			}
+		} else {
+			// this is for the standalone version of moddio
+			var player = taro.game?.createPlayer({
+				controlledBy: 'human',
+				name: `user${data.number}`,
+				coins: 0,
+				points: 0,
+				clientId: clientId,
+				isAdBlockEnabled: data.isAdBlockEnabled,
+				isMobile: data.isMobile,
+			});
+
+			if (player) {
+				player.joinGame();
+			}
+		}
+	},
+
+	_onPing: function (data, clientId) {
+		taro.network.send('ping', data, clientId, true);
+	},
+
+	_onBuySkin: function (skinHandle, clientId) {
+		var player = taro.game.getPlayerByClientId(clientId);
+		if (player) {
+			var unit = player.getSelectedUnit();
+			if (
+				unit &&
+				taro.game.data.skins &&
+				taro.game.data.skins[skinHandle] &&
+				unit._stats.points >= taro.game.data.skins[skinHandle].price &&
+				unit._stats.skin != skinHandle
+			) {
+				unit._stats.points -= taro.game.data.skins[skinHandle].price;
+				unit._stats.skin = skinHandle;
+				unit.updateTexture(skinHandle);
+
+				taro.network.send('buySkin', skinHandle, clientId);
+				unit.streamUpdateData([{ skin: unit._stats.skin }, { points: unit._stats.points }]);
+			}
+		}
+	},
+
+	_onTrade: function (msg, clientId) {
+		switch (msg.type) {
+			case 'start': {
+				var requestedBy = taro.$(msg.requestedBy);
+				var acceptedBy = taro.$(msg.acceptedBy);
+				if (requestedBy && acceptedBy && requestedBy._category === 'player' && acceptedBy._category === 'player') {
+					var tradeBetween = { playerA: requestedBy.id(), playerB: acceptedBy.id() };
+					taro.network.send('trade', { type: 'start', between: tradeBetween }, requestedBy._stats.clientId);
+					taro.network.send('trade', { type: 'start', between: tradeBetween }, acceptedBy._stats.clientId);
+					requestedBy.tradingWith = acceptedBy.id();
+					requestedBy.isTrading = true;
+					acceptedBy.tradingWith = requestedBy.id();
+					acceptedBy.isTrading = true;
+				}
+				break;
+			}
+			case 'offer': {
+				var from = taro.$(msg.from);
+				var to = taro.$(msg.to);
+				from.acceptTrading = false;
+				to.acceptTrading = false;
+				if (from && to && from._category === 'player' && from._category === 'player' && from.tradingWith === to.id()) {
+					taro.network.send(
+						'trade',
+						{
+							type: 'offer',
+							from: msg.from,
+							to: msg.to,
+							tradeItems: msg.tradeItems,
+						},
+						to._stats.clientId
+					);
+				}
+				break;
+			}
+			case 'accept': {
+				var acceptedBy = taro.$(msg.acceptedBy);
+				var acceptedFor = taro.$(msg.acceptedFor);
+
+				if (acceptedBy && acceptedFor) {
+					if (acceptedBy.tradingWith === acceptedFor.id()) {
+						acceptedBy.acceptTrading = true;
+					}
+					if (acceptedBy.acceptTrading && acceptedFor.acceptTrading) {
+						var unitA = acceptedBy.getSelectedUnit();
+						var unitB = acceptedFor.getSelectedUnit();
+						if (!unitA || !unitB || !unitA.inventory || !unitB.inventory) {
+							taro.network.send('trade', { type: 'error', between: tradeBetween }, acceptedFor._stats.clientId);
+							taro.network.send('trade', { type: 'error', between: tradeBetween }, acceptedBy._stats.clientId);
+							return;
+						}
+						var unitAInventorySize = unitA.inventory.getTotalInventorySize();
+						var unitBInventorySize = unitB.inventory.getTotalInventorySize();
+						var unitAItems = unitA._stats.itemIds.slice(unitAInventorySize, unitAInventorySize + 5);
+						var unitBItems = unitB._stats.itemIds.slice(unitBInventorySize, unitBInventorySize + 5);
+						var isTradingSuccessful = false;
+
+						if (!unitB.inventory.checkAvailableSlots(unitAItems) || !unitA.inventory.checkAvailableSlots(unitBItems)) {
+							taro.network.send('trade', { type: 'error', between: tradeBetween }, acceptedFor._stats.clientId);
+							taro.network.send('trade', { type: 'error', between: tradeBetween }, acceptedBy._stats.clientId);
+							return;
+						}
+
+						for (var i = 0; i < unitAItems.length; i++) {
+							if (unitAItems[i]) {
+								var item = taro.$(unitAItems[i]);
+								unitA.dropItem(item._stats.slotIndex);
+								isTradingSuccessful = unitB.pickUpItem(item);
+
+								if (!isTradingSuccessful) {
+									unitA.pickUpItem(item);
+									break;
+								}
+							}
+						}
+
+						for (var i = 0; i < unitBItems.length; i++) {
+							if (unitBItems[i]) {
+								var item = taro.$(unitBItems[i]);
+								unitB.dropItem(item._stats.slotIndex);
+								isTradingSuccessful = unitA.pickUpItem(item);
+
+								if (!isTradingSuccessful) {
+									unitB.pickUpItem(item);
+									break;
+								}
+							}
+						}
+						var tradeBetween = {
+							playerA: msg.acceptedBy,
+							playerB: msg.acceptedFor,
+						};
+
+						if (!isTradingSuccessful) {
+							taro.network.send('trade', { type: 'error', between: tradeBetween }, acceptedFor._stats.clientId);
+							taro.network.send('trade', { type: 'error', between: tradeBetween }, acceptedBy._stats.clientId);
+							return;
+						}
+						if (!acceptedBy.acceptTrading) {
+							taro.chat.sendToRoom(
+								'1',
+								`Trading has been accepted by ${acceptedBy._stats.name}`,
+								acceptedFor._stats.clientId
+							);
+							taro.network.send('trade', { type: 'accept', between: tradeBetween }, acceptedFor._stats.clientId);
+						}
+
+						unitA.streamUpdateData([{ itemIds: unitA._stats.itemIds }]);
+						unitB.streamUpdateData([{ itemIds: unitB._stats.itemIds }]);
+
+						taro.network.send('trade', { type: 'success', between: tradeBetween }, acceptedFor._stats.clientId);
+
+						taro.network.send('trade', { type: 'success', between: tradeBetween }, acceptedBy._stats.clientId);
+						if (acceptedBy) {
+							delete acceptedBy.isTrading;
+							delete acceptedBy.tradingWith;
+							delete acceptedBy.acceptTrading;
+						}
+						if (acceptedFor) {
+							delete acceptedFor.isTrading;
+							delete acceptedFor.tradingWith;
+							delete acceptedFor.acceptTrading;
+						}
+					}
+				}
+
+				break;
+			}
+			case 'cancel': {
+				var playerA = taro.$(msg.cancleBy);
+				var playerB = taro.$(msg.cancleTo);
+				if (playerA) {
+					delete playerA.isTrading;
+					delete playerA.tradingWith;
+					delete playerA.acceptTrading;
+				}
+				if (playerB) {
+					delete playerB.isTrading;
+					delete playerB.tradingWith;
+					delete playerB.acceptTrading;
+				}
+
+				var tradeBetween = { playerA: msg.cancleBy, playerB: msg.cancleTo };
+				if (playerA) {
+					taro.network.send('trade', { type: 'cancel', between: tradeBetween }, playerA._stats.clientId);
+				}
+				if (playerB) {
+					taro.network.send('trade', { type: 'cancel', between: tradeBetween }, playerB._stats.clientId);
+					taro.chat.sendToRoom('1', `Trading has been cancel by ${playerA._stats.name}`, playerB._stats.clientId);
+				}
+
+				var unitA = playerA.getSelectedUnit();
+				if (unitA) {
+					var unitAInventorySize = unitA.inventory.getTotalInventorySize();
+					for (var i = unitAInventorySize; i < unitAInventorySize + 5; i++) {
+						var offeringItemId = unitA._stats.itemIds[i];
+						var item = offeringItemId && taro.$(offeringItemId);
+						if (item && item._category === 'item') {
+							var availSlot = unitA.inventory.getFirstAvailableSlotForItem(item);
+							unitA._stats.itemIds[availSlot - 1] = unitA._stats.itemIds[i];
+							unitA._stats.itemIds[i] = undefined;
+							item.changeSlotIndex(availSlot - 1);
+						}
+					}
+					// revert items for A unit
+					unitA.streamUpdateData([{ itemIds: unitA._stats.itemIds }]);
+				}
+
+				var unitB = playerB?.getSelectedUnit();
+				if (unitB) {
+					var unitBInventorySize = unitB.inventory.getTotalInventorySize();
+					for (var i = unitBInventorySize; i < unitBInventorySize + 5; i++) {
+						var offeringItemId = unitB._stats.itemIds[i];
+						var item = offeringItemId && taro.$(offeringItemId);
+						if (item && item._category === 'item') {
+							var availSlot = unitB.inventory.getFirstAvailableSlotForItem(item);
+							unitB._stats.itemIds[availSlot - 1] = unitB._stats.itemIds[i];
+							unitB._stats.itemIds[i] = undefined;
+							item.changeSlotIndex(availSlot - 1);
+						}
+					}
+					// revert items for B unit
+					unitB.streamUpdateData([{ itemIds: unitB._stats.itemIds }]);
+				}
+				break;
+			}
+		}
+	},
+
+	_onEditTile: function (data, clientId) {
+		taro.developerMode.editTile(data, clientId);
+	},
+
+	_onEditRegion: function (data, clientId) {
+		taro.developerMode.editRegion(data, clientId);
+	},
+
+	_onEditVariable: function (data, clientId) {
+		taro.developerMode.editVariable(data, clientId);
+	},
+
+	_onEditInitEntity: function (data, clientId) {
+		taro.developerMode.editInitEntity(data, clientId);
+	},
+
+	_onEditGlobalScripts: function (data, clientId) {
+		taro.developerMode.editGlobalScripts(data, clientId);
+	},
+
+	_onRequestInitEntities: function (data, clientId) {
+		taro.developerMode.requestInitEntities(data, clientId);
+	},
+
+	_onEditEntity: function (data, clientId) {
+		taro.developerMode.editEntity(data, clientId);
+	},
+
+	_onBuyItem: async function (data, clientId) {
+		const { id, token } = data;
+		taro.devLog(`player ${clientId} wants to purchase item${id}`);
+
+		var player = taro.game.getPlayerByClientId(clientId);
+		if (player) {
+			var unit = player.getSelectedUnit();
+			if (unit) {
+				try {
+					const status = await unit.buyItem(id, token);
+					if (status) {
+						taro.script.trigger('playerPurchasesItem', {
+							itemId: taro.game.lastCreatedItemId,
+							playerId: player.id(),
+						});
+					}
+				} catch (e) {
+					console.log('playerPurchasesItem trigger not fired');
+				}
+			}
+		}
+	},
+
+	_onBuyUnit: function (id, clientId) {
+		taro.devLog(`player ${clientId} wants to purchase item${id}`);
+		var player = taro.game.getPlayerByClientId(clientId);
+		if (player) {
+			var unit = player.getSelectedUnit();
+			if (unit) {
+				unit.buyUnit(id);
+			}
+		}
+	},
+
+	_onEquipSkin: function (equipPurchasable, clientId) {
+		var player = taro.game.getPlayerByClientId(clientId);
+		if (player) {
+			var unit = player.getSelectedUnit();
+			if (unit) {
+				unit.equipSkin(equipPurchasable);
+			}
+		}
+	},
+
+	_onSwapInventory: function (data, clientId) {
+		var player = taro.game.getPlayerByClientId(clientId);
+		if (player) {
+			var unit = player.getSelectedUnit();
+			if (unit && unit._stats) {
+				var itemIds = rfdc()(unit._stats.itemIds);
+				var fromItem = taro.$(itemIds[data.from]);
+				var toItem = taro.$(itemIds[data.to]);
+
+				// both FROM & TO slots have items
+				if (fromItem && fromItem._stats && toItem && toItem._stats) {
+					// merge
+					// if (fromItem._stats.itemTypeId == toItem._stats.itemTypeId) {
+					// 	var qtyToBeAdded = Math.min(toItem._stats.maxQuantity - toItem._stats.quantity, fromItem._stats.quantity)
+					// 	if (qtyToBeAdded > 0) {
+					// 		if (toItem)
+					// 			toItem.updateQuantity(toItem._stats.quantity + qtyToBeAdded);
+					// 		if (fromItem)
+					// 			fromItem.updateQuantity(fromItem._stats.quantity - qtyToBeAdded);
+					// 	}
+					// 	return;
+					// }
+
+					// swap
+					if (
+						(data.to < unit.inventory.getTotalInventorySize() ||
+							(data.to >= unit.inventory.getTotalInventorySize() &&
+								!fromItem._stats.controls.undroppable &&
+								!fromItem._stats.controls.untradable)) && //check if try to trade undroppable item
+						(data.to + 1 > unit._stats.inventorySize || unit.inventory.isEquipRequirementMet(fromItem._stats)) &&
+						(data.from + 1 > unit._stats.inventorySize || unit.inventory.isEquipRequirementMet(toItem._stats)) &&
+						(fromItem._stats.controls == undefined ||
+							fromItem._stats.controls.permittedInventorySlots == undefined ||
+							fromItem._stats.controls.permittedInventorySlots.length == 0 ||
+							fromItem._stats.controls.permittedInventorySlots.includes(data.to + 1) ||
+							(data.to + 1 > unit._stats.inventorySize && fromItem._stats.controls.backpackAllowed !== false)) && // any item can be moved into backpack slots if the backpackAllowed property is true
+						(data.from < unit.inventory.getTotalInventorySize() ||
+							(!toItem._stats.controls.undroppable && !toItem._stats.controls.untradable)) &&
+						(toItem._stats.controls == undefined ||
+							toItem._stats.controls.permittedInventorySlots == undefined ||
+							toItem._stats.controls.permittedInventorySlots.length == 0 ||
+							toItem._stats.controls.permittedInventorySlots.includes(data.from + 1) ||
+							(data.from + 1 > unit._stats.inventorySize && toItem._stats.controls.backpackAllowed !== false)) // any item can be moved into backpack slots if the backpackAllowed property is true
+					) {
+						if (
+							fromItem._stats.bonus &&
+							fromItem._stats.bonus.passive &&
+							fromItem._stats.bonus.passive.isDisabledInBackpack == true
+						) {
+							if (data.from + 1 <= unit._stats.inventorySize && data.to + 1 > unit._stats.inventorySize) {
+								unit.updateStats(fromItem.id(), true);
+							} else if (data.to + 1 <= unit._stats.inventorySize && data.from + 1 > unit._stats.inventorySize) {
+								unit.updateStats(fromItem.id());
+							}
+						}
+
+						if (
+							toItem._stats.bonus &&
+							toItem._stats.bonus.passive &&
+							toItem._stats.bonus.passive.isDisabledInBackpack == true
+						) {
+							if (data.to + 1 <= unit._stats.inventorySize && data.from + 1 > unit._stats.inventorySize) {
+								unit.updateStats(toItem.id(), true);
+							} else if (data.from + 1 <= unit._stats.inventorySize && data.to + 1 > unit._stats.inventorySize) {
+								unit.updateStats(toItem.id());
+							}
+						}
+
+						var temp = itemIds[data.from];
+						itemIds[data.from] = itemIds[data.to];
+						itemIds[data.to] = temp;
+					}
+				}
+
+				// TO slot doesn't have item
+				if (
+					fromItem != undefined &&
+					toItem == undefined &&
+					(data.to + 1 > unit._stats.inventorySize || unit.inventory.isEquipRequirementMet(fromItem._stats)) &&
+					(data.to < unit.inventory.getTotalInventorySize() ||
+						(data.to >= unit.inventory.getTotalInventorySize() &&
+							!fromItem._stats.controls.undroppable &&
+							!fromItem._stats.controls.untradable)) && //check if try to trade undroppable item
+					(fromItem._stats.controls == undefined ||
+						fromItem._stats.controls.permittedInventorySlots == undefined ||
+						fromItem._stats.controls.permittedInventorySlots.length == 0 ||
+						fromItem._stats.controls.permittedInventorySlots.includes(data.to + 1) ||
+						(data.to + 1 > unit._stats.inventorySize && fromItem._stats.controls.backpackAllowed !== false)) // any item can be moved into backpack slots if the backpackAllowed property is true
+				) {
+					if (
+						fromItem._stats.bonus &&
+						fromItem._stats.bonus.passive &&
+						fromItem._stats.bonus.passive.isDisabledInBackpack == true
+					) {
+						if (data.from + 1 <= unit._stats.inventorySize && data.to + 1 > unit._stats.inventorySize) {
+							unit.updateStats(fromItem.id(), true);
+						} else if (data.to + 1 <= unit._stats.inventorySize && data.from + 1 > unit._stats.inventorySize) {
+							unit.updateStats(fromItem.id());
+						}
+					}
+
+					itemIds[data.to] = itemIds[data.from];
+					itemIds[data.from] = undefined;
+				}
+
+				unit.streamUpdateData([{ itemIds: itemIds }], clientId);
+				if (fromItem != undefined) {
+					fromItem.changeSlotIndex(parseInt(data.to));
+				}
+				if (toItem != undefined) {
+					toItem.changeSlotIndex(parseInt(data.from));
+				}
+				unit.changeItem(unit._stats.currentItemIndex);
+			}
+		}
+	},
+
+	_onRunProfiler: function ({ run }, modClientId) {
+		var modPlayer = taro.game.getPlayerByClientId(modClientId);
+
+		if (modPlayer && modPlayer.isDeveloper()) {
+			if (run) {
+				taro.profiler.start();
+			} else {
+				taro.profiler.stop();
+			}
+		}
+	},
+
+	_onKick: function (kickedClientId, modClientId) {
+		var modPlayer = taro.game.getPlayerByClientId(modClientId);
+		var kickedPlayer = taro.game.getPlayerByClientId(kickedClientId);
+
+		if (modPlayer && modPlayer.isDeveloper() && kickedPlayer) {
+			taro.game.kickPlayer(kickedPlayer.id(), `You were kicked by ${modPlayer._stats?.name}`);
+		}
+	},
+
+	_onBanUser: function ({ userId, kickuserId }, clientId) {
+		var player = taro.game.getPlayerByClientId(clientId);
+
+		if (!player) {
+			return;
+		}
+
+		var isUserDeveloper = player.isDeveloper();
+
+		if (isUserDeveloper) {
+			var kickedPlayer = taro.$$('player').find(function (player) {
+				if (player._stats && player._stats.clientId === kickuserId) return true;
+			});
+			kickedPlayer.streamUpdateData([{ playerJoined: false }]);
+			taro.workerComponent.banUser({
+				userId: userId,
+			});
+		}
+	},
+	_onBanIp: function ({ gameId, kickuserId }, clientId) {
+		var player = taro.game.getPlayerByClientId(clientId);
+
+		if (!player) {
+			return;
+		}
+
+		var isUserDeveloper = player.isDeveloper();
+
+		if (isUserDeveloper) {
+			var kickedPlayer = taro.$$('player').find(function (player) {
+				return player._stats && player._stats.clientId === kickuserId;
+			});
+			let ipaddress = null;
+			let userId = null;
+			for (let clientId in taro.server.clients) {
+				if (clientId === kickuserId) {
+					ipaddress = taro.server.clients[clientId].ip;
+					userId = taro.server.clients[clientId]._id;
+				}
+			}
+
+			kickedPlayer.streamUpdateData([{ playerJoined: false }]);
+
+			if (ipaddress) {
+				taro.workerComponent.banIp({
+					ipaddress: ipaddress,
+					gameId: gameId,
+					userId: userId,
+				});
+			}
+		}
+	},
+	_onBanChat: function ({ gameId, kickuserId }, clientId) {
+		var player = taro.game.getPlayerByClientId(clientId);
+
+		if (!player) {
+			return;
+		}
+
+		var isUserDeveloper = player.isDeveloper();
+
+		if (isUserDeveloper) {
+			var banPlayer = taro.$$('player').find(function (player) {
+				if (player._stats && player._stats.clientId === kickuserId) return true;
+			});
+			// kickedPlayer.streamUpdateData([{ playerJoined: false }]);
+
+			taro.workerComponent.banChat({
+				userId: banPlayer._stats.userId,
+				gameId: gameId,
+				status: !banPlayer._stats.banChat,
+			});
+
+			banPlayer.streamUpdateData([{ banChat: !banPlayer._stats.banChat }]);
+		}
+	},
+	_onUnEquipSkin: function (unEquipedId, clientId) {
+		var player = taro.game.getPlayerByClientId(clientId);
+
+		if (!player) {
+			return;
+		}
+
+		var unit = player.getSelectedUnit();
+		if (unit) {
+			unit.unEquipSkin(unEquipedId);
+		}
+	},
+
+	_onPlayerMouseMoved: function (state, clientId) {
+		var player = taro.game.getPlayerByClientId(clientId);
+		if (player) {
+			// NOTE(nick): Asked sloont why this check is here, apparantly it's to
+			// prevent sending mouse data to the server when we are dead/spectating.
+			// Should probably have that kind of logic elsewhere, like closer to
+			// where we are actually sending it.
+			var unit = player.getSelectedUnit();
+			if (unit) {
+				player.control.input.mouse.x = state[0];
+				player.control.input.mouse.y = state[1];
+				player.control.input.mouse.yaw = state[2];
+				player.control.input.mouse.pitch = state[3];
+			}
+
+			player.control.mouseMove(state[0], state[1], state[2], state[3]);
+		}
+	},
+
+	_onPlayerUnitMoved: function (position, clientId) {
+		var player = taro.game.getPlayerByClientId(clientId);
+		if (player) {
+			var unit = player.getSelectedUnit();
+			if (unit) {
+				unit.clientStreamedKeyFrame = [Date.now(), position];
+
+				// this player returned to the game's tab and began sending msg
+				if (!player.isTabActive) {
+					player.tabBecameActiveAt = Date.now();
+					player.isTabActive = true;
+				}
+
+				// console.log(position);
+			}
+		}
+	},
+
+	_onPlayerCustomInput: function (data, clientId) {
+		var player = taro.game.getPlayerByClientId(clientId);
+		if (player && data && data.status === 'submitted') {
+			player.lastCustomInput = data.inputText;
+			taro.script.trigger('playerCustomInput', { playerId: player.id() });
+		}
+	},
+
+	_onSendDataFromClient: function (data, clientId) {
+		var player = taro.game.getPlayerByClientId(clientId);
+		if (player && data) {
+			player.lastClientReceivedData = data.data
+				? Object.keys(data.data).reduce((result, key) => {
+					if (['boolean', 'number'].includes(typeof data.data[key])) {
+						result[key] = data.data[key];
+					} else if (typeof data.data[key] === 'string') {
+						result[key] = taro.sanitizer(data.data[key]);
+					}
+
+					return result;
+				}, {})
+				: {};
+			taro.script.trigger('whenDataReceivedFromClient', { playerId: player.id() });
+		}
+	},
+
+	_onPlayerAbsoluteAngle: function (data, clientId) {
+		var player = taro.game.getPlayerByClientId(clientId);
+		if (player) {
+			player.absoluteAngle = data;
+		}
+	},
+	_onPlayerDialogueSubmit: function (data, clientId) {
+		var player = taro.game.getPlayerByClientId(clientId);
+
+		if (player) {
+			var selectedOption = null;
+			let dialogue = null;
+
+			for (var dialogId in taro.game.data.dialogues) {
+				var dialog = taro.game.data.dialogues[dialogId];
+
+				if (dialogId === data.dialogue) {
+					dialogue = dialog;
+					for (var optionId in dialog.options) {
+						var option = dialog.options[optionId];
+
+						if (optionId === data.option) {
+							selectedOption = option;
+							break;
+						}
+					}
+				}
+			}
+
+			if (selectedOption) {
+				taro.game.lastPlayerSelectingDialogueOption = player.id();
+				if (selectedOption.scriptName) {
+					const isWorldDialogue = dialogue.isWorld;
+					const triggeredFrom = isWorldDialogue ? 'world' : 'map';
+					taro.script.runScript(selectedOption.scriptName, { triggeredFrom });
+				}
+				if (selectedOption.followUpDialogue) {
+					taro.network.send(
+						'openDialogue',
+						{
+							dialogueId: selectedOption.followUpDialogue,
+							extraData: {
+								playerName: player._stats.name,
+								dialogueTemplate: _.get(taro, 'game.data.ui.dialogueview.htmlData', ''),
+							},
+						},
+						player._stats.clientId
+					);
+				}
+			}
+		}
+	},
+
+	_onJoinCompetitionPromptSubmit: function (data, clientId) {
+		if (taro.isServer && taro.isUtilityTokenEnabled()) {
+			var player = taro.game.getPlayerByClientId(clientId);
+
+			if (player && data.status === 'confirmed' && data.amount && player._stats.userId) {
+				const min = taro.competition.participationCost.min;
+				const max = taro.competition.participationCost.max;
+				if ((data.amount >= min) && (data.amount <= max)) {
+					taro.workerComponent?.joinCompetition({ userId: player._stats.userId, amount: data.amount });
+				} else {
+					// invalid amount
+				}
+			} else {
+				// todo: trigger event to inform game about player canceling the competition join prompt.
+			}
+		}
+	},
+
+	_onHtmlUiClick: function (data, clientId) {
+		var player = taro.game.getPlayerByClientId(clientId);
+		if (player) {
+			player.lastHtmlUiClickData = data;
+			taro.script.trigger('htmlUiClick', { playerId: player.id() });
+		}
+	},
+
+	_onPlayerClickTradeOption: function (data, clientId) {
+		var player = taro.game.getPlayerByClientId(clientId);
+		if (player) {
+			taro.script.trigger('whenPlayerClickTradeOption', { playerId: player.id(), unitId: data.tradeWithUnitId });
+		}
+	},
+
+	_onDropItemToCanvas: function (data, clientId) {
+		var player = taro.game.getPlayerByClientId(clientId);
+		if (player) {
+			taro.script.trigger('whenPlayerDropsItemToCanvas', { playerId: player.id(), itemId: data.itemId });
+		}
+	},
+
+	_onMintItem: function (data, clientId) {
+		if (!taro.game.data.defaultData.web3?.enabled) {
+			return;
+		}
+
+		var player = taro.game.getPlayerByClientId(clientId);
+
+		if (player?._stats.userId && data.itemId) {
+			const item = taro.$(data.itemId);
+
+			if (item) {
+				item.prepareForNFTMinting();
+			}
+		}
+	},
+
+	_onUpdateItemMintStatus: function (data, clientId) {
+		if (!taro.game.data.defaultData.web3?.enabled) {
+			return;
+		}
+
+		var player = taro.game.getPlayerByClientId(clientId);
+		const userId = player?._stats?.userId;
+		if (userId && taro.NFTInventory[userId]?.length > 0) {
+			const item = taro.NFTInventory[userId].find((item) => item.itemId === data.itemId);
+			if (item?.web3Data) {
+				const itemToVerify = {
+					itemId: item.itemId,
+					web3Data: item.web3Data,
+				};
+
+				item.status = 'verification-under-progress';
+				taro.network.send('NFTInventoryUpdate', { NFTInventory: taro.NFTInventory[userId] }, player._stats.clientId);
+
+				taro.workerComponent.verifyItemMintStatus({
+					userId: userId,
+					itemsToVerify: [itemToVerify],
+				});
+			} else {
+				taro.cancelNFTMinting(userId, data.itemId);
+			}
+		}
+	},
+
+	_onCompleteUTItemPurchase: function (dataArg, clientId) {
+		if (!taro.isUtilityTokenEnabled()) {
+			return;
+		}
+
+		var player = taro.game.getPlayerByClientId(clientId);
+		const userId = player?._stats?.userId;
+		const uniqueId = dataArg.purchaseData?.uniqueId;
+		const transactionSignature = dataArg.transactionSignature;
+		const serializedSignedTxAsString = dataArg.serializedSignedTxAsString;
+
+		if (typeof userId !== 'string' || typeof uniqueId !== 'string' || typeof transactionSignature !== 'string' || typeof serializedSignedTxAsString !== 'string') {
+			return;
+		}
+
+		if (taro.pendingItemUtilityTokenTransactions[userId]?.[uniqueId]) {
+			const transaction = taro.pendingItemUtilityTokenTransactions[userId][uniqueId];
+
+			if (transaction?.web3Data) {
+				transaction.web3Data = {
+					...transaction.web3Data,
+					// transaction signature can be used to verify the transaction later in case of failure.
+					transactionSignature,
+					transactionSentAt: Date.now(),
+				};
+
+				// only add desired fields.
+				const data = {
+					serializedSignedTxAsString,
+					// overwrite userId, so that only the actual user can complete the purchase.
+					purchaseData: taro.getPendingUtilityTokenPurchaseData(userId, uniqueId),
+				};
+
+				taro.workerComponent.completeUTItemPurchase(data);
+			} else {
+				delete taro.pendingItemUtilityTokenTransactions[userId][uniqueId];
+			}
+		}
+	},
+
+	_onCancelUTItemPurchase: function (data, clientId) {
+		if (!taro.isUtilityTokenEnabled()) {
+			return;
+		}
+
+
+		var player = taro.game.getPlayerByClientId(clientId);
+		const userId = player?._stats?.userId;
+		const uniqueId = data.purchaseData?.uniqueId;
+
+		if (typeof userId !== 'string' || typeof uniqueId !== 'string') {
+			return;
+		}
+
+		if (taro.pendingItemUtilityTokenTransactions[userId]?.[uniqueId]) {
+			console.log('deleting transaction', uniqueId);
+			delete taro.pendingItemUtilityTokenTransactions[userId]?.[uniqueId];
+		}
+	},
+
+	_onPlayerKeyDown: function (data, clientId) {
+		var player = taro.game.getPlayerByClientId(clientId);
+		if (player != undefined) {
+			player.control.keyDown(data.device, data.key);
+		}
+	},
+
+	_onPlayerKeyUp: function (data, clientId) {
+		var player = taro.game.getPlayerByClientId(clientId);
+		if (player != undefined) {
+			player.control.keyUp(data.device, data.key);
+		}
+	},
+
+	_onPlayerSelectUnit: function (data, clientId) {
+		var unit = taro.$(data.unitId);
+		var player = taro.game.getPlayerByClientId(clientId);
+		if (player && unit) {
+			player.selectUnit(data.unitId);
+		}
+	},
+
+	_onRecordSocketMsgs: function (data, clientId) {
+		var player = taro.game.getPlayerByClientId(clientId);
+
+		if (!player?._stats.isUserAdmin) {
+			return;
+		}
+
+		if (taro.workerComponent) {
+			taro.workerComponent.recordLogs(data);
+		}
+	},
+
+	_onGetSocketMsgs: function (data, clientId) {
+		var player = taro.game.getPlayerByClientId(clientId);
+
+		if (!player?._stats.isUserAdmin) {
+			return;
+		}
+
+		data = { ...data, requester: clientId };
+
+		if (taro.workerComponent) {
+			taro.workerComponent.sendLogs(data);
+		}
+	},
+
+	_onStopRecordSocketMsgs: function (data, clientId) {
+		var player = taro.game.getPlayerByClientId(clientId);
+
+		if (!player?._stats.isUserAdmin) {
+			return;
+		}
+
+		if (taro.workerComponent) {
+			taro.workerComponent.stopRecordLogs(data);
+		}
+	},
+
+	_onPlayAdCallback: function (data, clientId) {
+		taro.ad.playCallback(data, clientId);
+	},
+
+	_onSomeBullshit: function () {
+		//bullshit
+	},
+};
+
+if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
+	module.exports = ServerNetworkEvents;
+}

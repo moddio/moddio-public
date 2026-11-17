@@ -1,0 +1,14 @@
+# Don't lint minified files.
+*.min.js
+
+# Don't lint minified libs.
+src/lib/*
+
+# Compiled source.
+client.js
+
+node_modules/*
+assets/*
+src/renderer/*
+engine/components/physics/box2d/dists/*
+

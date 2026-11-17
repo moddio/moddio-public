@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+    branches: [dependabot/**]
+
+jobs:
+  nodejs:
+    name: Node.js
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Install Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: 20
+
+      - name: Install Packages
+        run: npm ci
+
+      - name: Compile Typescript
+        run: npm run tsc
+
+      - name: Build Project
+        run: npm run build:git

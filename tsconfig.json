@@ -1,0 +1,29 @@
+{
+	"compilerOptions": {
+		"module": "None",
+		"target": "es6",
+		"sourceMap": true,
+		"outDir": ".",
+		"rootDir": "ts",
+		"moduleResolution": "node",
+		"skipLibCheck": true,
+		"typeRoots": [
+			"node_modules/@types",
+			"node_modules/phaser/types",
+			"ts/types"
+		],
+		"types": [
+			"node",
+			"jquery",
+			"phaser",
+      "three",
+		]
+	},
+	"include": [
+        "**/*",
+        "node_modules/phaser3-rex-plugins-types"
+    ],
+	"exclude": [
+		"node_modules",
+	]
+}

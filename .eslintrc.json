@@ -1,0 +1,118 @@
+{
+    "root": true,
+    "env": {
+        "browser": true,
+        "commonjs": true,
+        "es6": true,
+        "node": true
+    },
+    "extends": [
+        "eslint:recommended",
+        "plugin:@typescript-eslint/recommended",
+        "plugin:prettier/recommended"
+    ],
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+        "project": ["./tsconfig.json"]
+    },
+    "globals": {
+        "process": "writable",
+        "module": "writable",
+        "taro": "writable",
+        "$":"writable",
+        "window":"writable",
+        "TaroEntityBox2d": "writable",
+        "Item": "writable",
+        "FloatingText": "writable",
+        "localStorage": "writable",
+        "TaroArray": "writable",
+        "TaroBase": "writable",
+        "TaroBaseScene": "writable",
+        "TaroCamera": "writable",
+        "TaroClass": "writable",
+        "TaroDummyCanvas": "writable",
+        "TaroDummyContext": "writable",
+        "TaroEngine": "writable",
+        "TaroEntity": "writable",
+        "TaroEventingClass": "writable",
+        "TaroMap2d": "writable",
+        "TaroMatrix2d": "writable",
+        "TaroObject": "writable",
+        "TaroPoint2d": "writable",
+        "TaroPoint3d": "writable",
+        "TaroPoly2d": "writable",
+        "TaroQuest": "writable",
+        "TaroRect": "writable",
+        "TaroScene2d": "writable",
+        "TaroSceneGraph": "writable",
+        "TaroTileMap2d": "writable",
+        "TaroViewport": "writable"
+    },
+    "plugins": [
+        "@typescript-eslint",
+        "prettier"
+    ],
+    "rules": {
+        // Alternatives to eval should be used.
+        "no-eval": 1,
+
+        // Use templating strings with backticks whenever possible.
+        "prefer-template": 1,
+
+        // ESLint globals have not been configured for these.
+        "no-undef": 0,
+        "no-var": 0,
+        "no-use-before-define": 0,
+        "no-unused-vars": 0,
+        "no-unused-expressions": 0,
+        "no-void": 0,
+        "prefer-const": 0,
+
+        // Unnecessary.
+        "no-mixed-operators": 0,
+
+        // More redundant manual linting.
+        "new-cap": 0,
+        "eqeqeq": 0,
+        "curly": 0,
+        "camelcase": 0,
+        "no-sequences": 0,
+        "no-tabs": 0,
+        "no-mixed-spaces-and-tabs": 0,
+
+        "prefer-regex-literals": 0,
+        "no-useless-escape": 0,
+        "no-func-assign": 0,
+        "no-global-assign": 0,
+        "no-self-assign": 0,
+        "func-style": 0,
+        "no-proto": 0,
+        "no-undef-init": 0,
+        "no-unsafe-finally": 0,
+        "no-return-assign": 0,
+        "no-redeclare": 0,
+        "array-callback-return": 0,
+        "no-prototype-builtins": 0,
+        "no-case-declarations": 0,
+        "use-isnan": 0,
+        "no-fallthrough": "off",
+        "no-inner-declarations": "off",
+        "no-constant-condition": ["error", {"checkLoops": false}],
+        "no-debugger": "off",
+
+        "@typescript-eslint/no-namespace": "off",
+        "@typescript-eslint/no-empty-function": "off",
+        "@typescript-eslint/ban-ts-comment": "off",
+
+        // These we want to enable in the future on by one, and fix them one
+        // by one. For the purpose of formatting everything I disable them for
+        // now.
+        "@typescript-eslint/no-unused-vars": "off",
+        "@typescript-eslint/no-var-requires": "off",
+        "@typescript-eslint/no-this-alias": "off",
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/triple-slash-reference": "off",
+        "@typescript-eslint/ban-types": "off",
+        "no-empty": "off"
+    }
+}
